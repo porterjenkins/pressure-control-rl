@@ -1,7 +1,11 @@
 import numpy as np
 import matlab.engine
+from utils import *
 
 class Simulator(object):
+    """
+    Simulator base class
+    """
 
     def __init__(self, totalsteps):
 
@@ -41,17 +45,25 @@ class Simulator(object):
 
     def main(self):
 
+        #n_iter = self.totalsteps / self.rept
+        p = np.zeros(self.totalsteps)
+        prms = []
+
         cntr = 0
         for i in range(self.rept, self.totalsteps+self.rept, self.rept):
+            start_idx = cntr*self.rept
+            end_idx = (cntr+1)*self.rept
             print("Iteration: {}".format(i))
-            pressure_seq = self.eng.Time_Solver(self.rept, i, self.mass_in, self.phi_primary, self.frac_sec)
+            p_i = self.eng.Time_Solver(self.rept, i, self.mass_in, self.phi_primary, self.frac_sec)
+            p_i = np.array(p_i)
+            prms.append(rms(p_i))
 
-            pressure_seq = np.array(pressure_seq)
-            print(pressure_seq)
+            p[start_idx:end_idx] = p_i
+
 
             cntr += 1
 
-    def terminate_simulator(self):
+    def quit(self):
         self.eng.quit()
 
 
@@ -59,4 +71,4 @@ class Simulator(object):
 if __name__ == "__main__":
     sim = Simulator(totalsteps=2500)
     sim.main()
-    sim.terminate_simulator()
+    sim.quit()

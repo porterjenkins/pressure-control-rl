@@ -3,7 +3,8 @@ function Initialize_Solution()
 global totalsteps X A cells Q_dot f1_index f2_index
 global N divs xi1 xi2 M_dot_in L U_in n_moles_in_ox MW_Ox m_dot_Fuel1 T_in Cp_mix ttot dt
 
-totalsteps = ceil(ttot/dt);         % Total time steps
+%totalsteps = ceil(ttot/dt);         % Total time steps
+%totalsteps = 1000
 
 X = zeros(2*N,1);
 X(1,1) = 0/101325;       % Initial amplitude for 1st mode

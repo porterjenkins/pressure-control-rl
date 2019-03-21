@@ -1,5 +1,5 @@
 function Setup_Acoustic(damp_coeff)
-
+disp("Setting up Acoustics")
 global N c gamma zeta1 nn kn phi dphi
 global L
 

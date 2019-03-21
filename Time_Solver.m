@@ -1,5 +1,7 @@
 function [p,t] = Time_Solver(steps,I,Mass_in,phi_primary,frac_sec)
 
+% I = i; steps = rept;
+
 global Q_dot_old
 global c gamma cells nn L zeta1 N A ig_start dt ig_stop divs ig_pos Aa Ea MW_Fuel rho
 global h w X n_Ox_n_F Q_dot Hf T_in Cp_mix U_in M_dot_in n_moles_in_ox MW_Ox phi1
@@ -18,32 +20,31 @@ count = 1;
 for i = I+1-steps:I
     %% Recompute A Matrix
     
-    c = sqrt(gamma*287*mean(cells(5,:)));
-    omega_n = c*(2*nn-1)*0.5*pi/L;
-    damping = 2*zeta1*omega_n;
-    
-    for k = 1:2*N
-        if rem(k,2) == 1
-            A(k,k+1) = 1;
-        else
-            A(k,k-1) = -omega_n(k/2)*omega_n(k/2);
-            A(k,k) = -damping(k/2);
-        end
-    end
-    
-    %% RK for acoustics
-    
-    l1 = dt*(A*X);
-    l2 = dt*(A*(X + l1/2));
-    l3 = dt*(A*(X + l2/2));
-    l4 = dt*(A*(X + l3));
-    
-    X = X + (l1 + 2*l2 +2*l3 + l4)/6;
-    
-    B = zeros(2*N,1);
+%     c = sqrt(gamma*287*mean(cells(5,:)));
+%     omega_n = c*(2*nn-1)*0.5*pi/L;
+%     damping = 2*zeta1*omega_n;
+%     
+%     for k = 1:2*N
+%         if rem(k,2) == 1
+%             A(k,k+1) = 1;
+%         else
+%             A(k,k-1) = -omega_n(k/2)*omega_n(k/2);
+%             A(k,k) = -damping(k/2);
+%         end
+%     end
+%     
+%     %% RK for acoustics
+%     
+%     l1 = dt*(A*X);
+%     l2 = dt*(A*(X + l1/2));
+%     l3 = dt*(A*(X + l2/2));
+%     l4 = dt*(A*(X + l3));
+%     
+%     X = X + (l1 + 2*l2 +2*l3 + l4)/6;
+%     
+%     B = zeros(2*N,1);
     
     %% Compute Combustion
-    
     if i >= ceil(ig_start/dt) && i <= ceil(ig_stop/dt)
         cells(5,ceil(ig_pos/L*divs)) = max(cells(5,ceil(ig_pos/L*divs)),ig_temp);
         cells(4,ceil(ig_pos/L*divs)) = cells(3,ceil(ig_pos/L*divs))*Cp_mix(cells(5,ceil(ig_pos/L*divs)))*cells(5,ceil(ig_pos/L*divs));
@@ -67,17 +68,45 @@ for i = I+1-steps:I
         end
         
         Q_dot(j) =  - ddFdt*Hf*1000 - 0*10.45*2*(L/divs)*(w+h)*(cells(5,j) - T_in)/(1000*(L/divs*h*w));
+%         Q_max = 0.2e5;
+%         if max(Q_dot)>Q_max
+%             Q_dot(find(Q_dot>Q_max)) = Q_max;
+%         end
         cells(4,j) = cells(4,j) + Q_dot(j)*(L/divs*h*w)*dt;
         cells(5,j) = cells(4,j)/(Cp_mix(cells(5,j))*cells(3,j));
     end    
     
     %% Find and add Exciting Input
     
-    for j = 1:divs
-        B(2:2:2*N) = B(2:2:2*N) + (((gamma - 1))/Pamb*phi((j-1)*L/divs)*(Q_dot(j) - Q_dot_old(j))*1000/dt)'*dt*dt;
+        c = sqrt(gamma*287*mean(cells(5,:)));
+    omega_n = c*(2*nn-1)*0.5*pi/L;
+    damping = 2*zeta1*omega_n;
+    
+    for k = 1:2*N
+        if rem(k,2) == 1
+            A(k,k+1) = 1;
+        else
+            A(k,k-1) = -omega_n(k/2)*omega_n(k/2);
+            A(k,k) = -damping(k/2);
+        end
     end
     
-    X = X + B;
+    %% RK for acoustics
+    
+    l1 = dt*(A*X);
+    l2 = dt*(A*(X + l1/2));
+    l3 = dt*(A*(X + l2/2));
+    l4 = dt*(A*(X + l3));
+    
+    X = X + (l1 + 2*l2 +2*l3 + l4)/6;
+    
+    B = zeros(2*N,1);
+    
+    for j = 1:divs
+        B(2:2:2*N) = B(2:2:2*N) + (((gamma - 1))/Pamb*phi((j-1)*L/divs)*(Q_dot(j) - Q_dot_old(j))*1000/dt)'*dx/L;
+    end
+    
+    X = X + B*dt;
     
     clear l1 l2 l3 l4
     
@@ -90,8 +119,10 @@ for i = I+1-steps:I
     for j = 1:divs
         orand = randn;
         u_prime = (X(2:2:2*N)'./(kn.*kn))*dphi((j-1)*L/divs)'/gamma;
+%         u_prime = sign((X(2:2:2*N)'./(kn.*kn))*dphi((j-1)*L/divs)'/gamma)...
+%             *min(abs((X(2:2:2*N)'./(kn.*kn))*dphi((j-1)*L/divs)'/gamma),2*U_in*cells(5,j)/T_in);
         
-        if j<=ceil(ig_pos/L*divs)+6
+        if j<=ceil(ig_pos/L*divs)+1
             divs_net = ((u_prime + (1+0.02*orand)*U_in)*dt)/(L/divs);
         else
             u_max = max(u_max,U_in*cells(5,j)/T_in);
@@ -112,7 +143,12 @@ for i = I+1-steps:I
         if abs(shift) == 1
             per(1) = m_divs_net;
         else
+            %disp(divs)
+            %disp(dt)
+            %disp(divs_net)
+            %disp(shift)
             for k = 1:abs(shift)-1
+                %disp(k)
                 per(k) = 1/m_divs_net;
             end
             per(k+1) = (m_divs_net - floor(m_divs_net))/m_divs_net;

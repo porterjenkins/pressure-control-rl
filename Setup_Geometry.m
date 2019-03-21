@@ -1,5 +1,5 @@
 function [ output_args ] = Setup_Geometry(pos_primary,pos_secondary,pos_ignition)
-
+disp("Setting up Geometry")
 global L h w xi1 xi2 xp ig_pos dx divs x dt
 
 L = 1.5;    % Length of Combustor (in m)
