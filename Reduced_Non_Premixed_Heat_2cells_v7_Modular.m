@@ -6,7 +6,7 @@ clc;
 
 %global dt totalsteps
 global dt
-totalsteps = 2500;
+totalsteps = 50000;
 
 %% Boundary Conditions
 
@@ -77,9 +77,9 @@ for i = rept:rept:totalsteps
         tc(c) = i*dt; % time regime for controller
         %Mass_in = 80;
         %phi_primary = 0.4;
-        %if i>= 5*cntr_time
-        %    frac_sec = min(kp*max((prms(c) - Threshold),0),1); % Chandra's control - pur RL controller here preferably
-        %end
+        if i>= 5*cntr_time
+            frac_sec = min(kp*max((prms(c) - Threshold),0),1); % Chandra's control - pur RL controller here preferably
+        end
         phii1(c) = phi_primary;
         phii2(c) = phii1(c)*frac_sec;
         c = c+1;
@@ -96,3 +96,4 @@ for i = rept:rept:totalsteps
 end
 disp(p)
 toc
+

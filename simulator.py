@@ -1,6 +1,7 @@
 import numpy as np
 import matlab.engine
 from utils import *
+from q_learning import TabularQLearning
 
 class Simulator(object):
     """
@@ -41,34 +42,44 @@ class Simulator(object):
         self.eng.Setup_Acoustic(self.damp_coeff, nargout=0)
         self.eng.Initialize_Solution(nargout=0)
 
+        # init controller
+        self.controller = TabularQLearning(n_states=10000, min_state_val=-5.0e5, max_state_val=5.0e5)
 
 
-    def main(self):
-
-        #n_iter = self.totalsteps / self.rept
-        p = np.zeros(self.totalsteps)
-        prms = []
-
-        cntr = 0
-        for i in range(self.rept, self.totalsteps+self.rept, self.rept):
-            start_idx = cntr*self.rept
-            end_idx = (cntr+1)*self.rept
-            print("Iteration: {}".format(i))
-            p_i = self.eng.Time_Solver(self.rept, i, self.mass_in, self.phi_primary, self.frac_sec)
-            p_i = np.array(p_i)
-            prms.append(rms(p_i))
-
-            p[start_idx:end_idx] = p_i
+    def main(self, n_episodes):
 
 
-            cntr += 1
 
-    def quit(self):
-        self.eng.quit()
+        for episode_cnt in range(n_episodes):
+
+            p = np.zeros(self.totalsteps)
+            prms = []
+
+            cntr = 0
+            for i in range(self.rept, self.totalsteps+self.rept, self.rept):
+                start_idx = cntr*self.rept
+                end_idx = (cntr+1)*self.rept
+                print("Iteration: {}".format(i))
+                p_i = self.eng.Time_Solver(self.rept, i, self.mass_in, self.phi_primary, self.frac_sec)
+                p_i = np.array(p_i)
+                prms_i = rms(p_i)
+                prms.append(prms_i)
+
+                p[start_idx:end_idx] = p_i
+
+                reward_i = reward(prms)
+                state_i = prms_i
+
+                a_prime =  self.controller.get_epsilon_greedy_action(state_i, eps=.2)
+
+
+                cntr += 1
+
+
 
 
 
 if __name__ == "__main__":
     sim = Simulator(totalsteps=2500)
-    sim.main()
+    sim.main(n_episodes=10)
     sim.quit()
