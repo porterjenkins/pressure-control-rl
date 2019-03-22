@@ -3,7 +3,7 @@ import numpy as np
 
 def reward(arr):
     if len(arr) > 1:
-        r = -(arr[0, -1] - arr[0, -2])
+        r = -(arr[-1] - arr[-2])
     else:
         r = -arr[0]
 

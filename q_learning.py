@@ -3,7 +3,7 @@ import math
 
 class TabularQLearning(object):
 
-    def __init__(self, n_states, min_state_val, max_state_val):
+    def __init__(self, n_states, min_state_val, max_state_val, gamma=.5, alpha=.1):
 
         self.min_state_val = min_state_val
         self.max_state_val = max_state_val
@@ -12,10 +12,13 @@ class TabularQLearning(object):
         self.bin_width = self.state_buckets[1] - self.state_buckets[0]
         self.actions = [.25, .2, .15, .1, .05, 0, -.25, -.2, -.15, -.1, -.05]
 
-        self.action_idx_map = dict(zip(range(len(self.actions)), self.actions))
+        self.idx_action_map = dict(zip(range(len(self.actions)), self.actions))
+        self.action_idx_map = dict(zip(self.actions, range(len(self.actions))))
 
 
         self.q_table = np.random.randn(n_states, len(self.actions))
+        self.gamma = gamma
+        self.alpha = alpha
 
 
     def get_state_idx(self, s):
@@ -29,13 +32,12 @@ class TabularQLearning(object):
         state_idx = self.get_state_idx(s)
         action_idx = np.argmax(self.q_table[state_idx, :])
 
-        return self.action_idx_map[action_idx]
+        return self.idx_action_map[action_idx]
 
 
     def get_random_action(self):
 
         return np.random.choice(self.actions, 1)
-
 
 
     def get_epsilon_greedy_action(self, s, eps=.2):
@@ -48,5 +50,22 @@ class TabularQLearning(object):
 
         return action
 
-    def quit(self):
-        self.eng.quit()
+    def get_q_max(self, s):
+
+        state_idx = self.get_state_idx(s)
+        return np.max(self.q_table[state_idx, :])
+
+
+    def update_q_value(self, s, a, r, q_max):
+        state_idx = self.get_state_idx(s)
+        action_idx = self.action_idx_map[a]
+
+        curr_q = self.q_table[state_idx, action_idx]
+        self.q_table[state_idx, action_idx] = curr_q + self.alpha*(r + self.gamma*q_max - curr_q)
+        new_q = self.q_table[state_idx, action_idx]
+
+
+        print("Q-value update ({}, {}): {:.4f} --> {:.4f}".format(s, a, curr_q, new_q))
+
+
+

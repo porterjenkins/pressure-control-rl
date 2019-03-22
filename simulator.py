@@ -43,7 +43,7 @@ class Simulator(object):
         self.eng.Initialize_Solution(nargout=0)
 
         # init controller
-        self.controller = TabularQLearning(n_states=10000, min_state_val=-5.0e5, max_state_val=5.0e5)
+        self.controller = TabularQLearning(n_states=10000, min_state_val=-5.0e6, max_state_val=5.0e6, gamma=.1)
 
 
     def main(self, n_episodes):
@@ -57,25 +57,52 @@ class Simulator(object):
 
             cntr = 0
             for i in range(self.rept, self.totalsteps+self.rept, self.rept):
-                start_idx = cntr*self.rept
-                end_idx = (cntr+1)*self.rept
-                print("Iteration: {}".format(i))
+                start_idx = cntr * self.rept
+                end_idx = (cntr + 1) * self.rept
+
+                if cntr == 0:
+                    # initialize state
+                    p_i = self.eng.Time_Solver(self.rept, i, self.mass_in, self.phi_primary, self.frac_sec)
+                    p_i = np.array(p_i)
+                    prms_i = rms(p_i)
+                    prms.append(prms_i)
+
+                    p[start_idx:end_idx] = p_i
+                    state_i = prms_i
+                    cntr += 1
+                    continue
+
+                action_i = self.controller.get_epsilon_greedy_action(state_i, eps=.2)
+                self.update_frac_sec(action_i)
+
+                #print("Iteration: {}".format(i))
                 p_i = self.eng.Time_Solver(self.rept, i, self.mass_in, self.phi_primary, self.frac_sec)
                 p_i = np.array(p_i)
                 prms_i = rms(p_i)
                 prms.append(prms_i)
-
                 p[start_idx:end_idx] = p_i
 
                 reward_i = reward(prms)
-                state_i = prms_i
+                state_prime = prms_i
+                q_max = self.controller.get_q_max(state_prime)
 
-                a_prime =  self.controller.get_epsilon_greedy_action(state_i, eps=.2)
+                self.controller.update_q_value(state_i, action_i, reward_i, q_max)
+
+
+
+
 
 
                 cntr += 1
 
 
+    def update_frac_sec(self, action):
+        self.frac_sec += float(action)
+
+
+
+    def quit(self):
+        self.eng.quit()
 
 
 
