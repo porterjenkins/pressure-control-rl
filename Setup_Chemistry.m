@@ -1,7 +1,7 @@
 function Setup_Chemistry()
-disp("Setting up Chemistry")
+
 global MW_Fuel MW_Ox n_moles_in_ox Aa Ea m n Hf Cp_mix n_Ox_n_F ig_start ig_stop dFdt rho U_in m_dot_Fuel1 m_dot_Fuel2 
-global Pamb T_in M_dot_in h w phi1 frac_second dt
+global Pamb T_in M_dot_in h w phi1 frac_second
 
 MW_Fuel = 44;   % C3H8
 MW_Ox = 28.8;  % 28.8 for Air, 32 for O2
@@ -17,7 +17,7 @@ Cp_mix = @(T)min((1.9327e-10*T^4 - 7.9999e-7*T^3 +1.1407e-3*T^2 -4.489e-1*T + 1.
 
 n_Ox_n_F = 3 + 8/4; % x + y/4 for CxHy
 ig_start = 1e-4;
-ig_stop = ig_start + 5*dt;
+ig_stop = ig_start + 2e-3;
 
 dFdt = @(AA,EEa,TT,FUEL,OXX)AA*exp(-EEa/TT)*(FUEL)^m*(OXX)^n;
 

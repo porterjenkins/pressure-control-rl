@@ -1,11 +1,8 @@
 import numpy as np
 
 
-def reward(arr):
-    if len(arr) > 1:
-        r = -(arr[-1] - arr[-2])
-    else:
-        r = -arr[0]
+def reward(prms, target):
+    r = -np.abs(prms - target) / 1.0e2
 
     return r
 
@@ -13,4 +10,4 @@ def reward(arr):
 
 def rms(arr):
 
-    return np.sqrt(np.sum(np.power(arr, 2)))
+    return np.sqrt(np.mean(np.power(arr, 2)))
