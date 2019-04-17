@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import pickle
+from vfa import LinearVFA
 
 class QLearner(object):
     def __init__(self, gamma, alpha):
@@ -30,10 +31,12 @@ class QLearner(object):
 
 
     def dump_model(self):
-        pass
+        with open('models/q-table.p', 'wb') as f:
+            pickle.dump(self.q_func, f)
 
     def load_model(self, fname):
-        pass
+        with open(fname, 'rb') as f:
+            self.q_func = pickle.load(f)
 
     def get_q_max(self, s):
         pass
@@ -92,3 +95,9 @@ class TabularQLearning(QLearner):
         print("Q-value update ({:.4f}, {:.2f}): {:.4f} --> {:.4f}".format(s, a, curr_q, new_q))
 
 
+
+class LinearQLearning(QLearner):
+    def __init__(self,  n_features, gamma=.5, alpha=.1):
+        super().__init__(gamma, alpha)
+
+        self.q_func = LinearVFA(n_features)
