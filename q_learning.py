@@ -1,9 +1,8 @@
 import numpy as np
 import math
 import pickle
-from vfa import LinearVFA
+from vfa import LinearVFA, LstmVFA
 import torch
-from torch.autograd import Variable
 
 class QLearner(object):
     def __init__(self, gamma, alpha):
@@ -20,14 +19,6 @@ class QLearner(object):
 
     def get_q_hat(self, s):
         pass
-
-    def get_greedy_action(self, s):
-        q_hat = self.get_q_hat(s)
-        if isinstance(q_hat, np.ndarray):
-            action_idx = np.argmax(q_hat)
-        else:
-            action_idx = q_hat.max(0)[1].item()
-        return self.idx_action_map[action_idx]
 
 
     def get_random_action(self):
@@ -63,7 +54,6 @@ class QLearner(object):
 
     def update_q_value(self, s, a, r, q_max):
         pass
-
 
 
 class TabularQLearning(QLearner):
@@ -104,6 +94,12 @@ class TabularQLearning(QLearner):
 
         print("Q-value update ({:.4f}, {:.2f}): {:.4f} --> {:.4f}".format(s, a, curr_q, new_q))
 
+    def get_greedy_action(self, s):
+        q_hat = self.get_q_hat(s)
+        action_idx = np.argmax(q_hat)
+        return self.idx_action_map[action_idx]
+
+
 
 
 class LinearQLearning(QLearner):
@@ -111,7 +107,7 @@ class LinearQLearning(QLearner):
         super().__init__(gamma, alpha)
         self.n_features = n_features
         self.q_func = LinearVFA(n_features, n_actions=len(self.actions))
-        self.optim = self.q_func.get_optimizer(lr=.9)
+        self.optim = self.q_func.get_optimizer(lr=.1)
 
 
     def feature_extractor(self, observations):
@@ -145,7 +141,41 @@ class LinearQLearning(QLearner):
         loss.backward()
         self.optim.step()
 
-        #for p in self.q_func.parameters():
-        #    print(p)
-        #    print("sum:")
-        #    print(p.sum())
+    def get_greedy_action(self, s):
+        q_hat = self.get_q_hat(s)
+        action_idx = q_hat.max(0)[1].item()
+        return self.idx_action_map[action_idx]
+
+
+
+class LstmQLearning(LinearQLearning):
+    def __init__(self, seq_size, hidden_dim, gamma=.5, alpha=.1):
+        super().__init__(seq_size, gamma, alpha)
+        self.hidden_dim = hidden_dim
+        self.q_func = LstmVFA(seq_size, hidden_dim=hidden_dim, n_actions=len(self.actions))
+        self.optim = self.q_func.get_optimizer(lr=.1)
+
+
+    def get_q_hat(self, s):
+
+        s = torch.from_numpy(s).type(torch.FloatTensor).resize(1,1,8)
+        q_hat = self.q_func.forward(s)
+        return q_hat
+
+    def get_greedy_action(self, s):
+        q_hat = self.get_q_hat(s)
+        values, indices = torch.max(q_hat[0, 0, :], 0)
+        action_idx = indices.item()
+        return self.idx_action_map[action_idx]
+
+    def update_q_value(self, s, a, r, q_max):
+        self.optim.zero_grad()
+
+        action_idx = self.action_idx_map[a]
+        q_val_curr = self.get_q_hat(s)[0, 0, action_idx]
+        expected_q_val = q_max*self.gamma + r
+
+        loss = self.q_func.get_loss(q_val_curr=q_val_curr, q_val_expected=expected_q_val)
+
+        loss.backward()
+        self.optim.step()

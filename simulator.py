@@ -1,7 +1,7 @@
 import numpy as np
 import matlab.engine
 from utils import *
-from q_learning import TabularQLearning, LinearQLearning
+from q_learning import TabularQLearning, LinearQLearning, LstmQLearning
 import matplotlib.pyplot as plt
 import pickle
 
@@ -11,6 +11,16 @@ class Simulator(object):
     """
 
     def __init__(self, controller, totalsteps, target, state_size, persist):
+        """
+
+        :param controller:
+        :param totalsteps:
+        :param target:
+        :param state_size:
+                    -Tabular: number of state buckets
+                    -Linear: number of previous prms values to consider as state features
+        :param persist:
+        """
 
         self.totalsteps = totalsteps
         self.target = target # reward target
@@ -23,8 +33,8 @@ class Simulator(object):
             self.controller = TabularQLearning(n_states=state_size, min_state_val=0, max_state_val=5.0e3, gamma=.1)
         elif controller == 'linear':
             self.controller = LinearQLearning(n_features=state_size)
-        else:
-            raise NotImplementedError("TODO: neural_net")
+        elif controller == 'neural_net':
+            self.controller = LstmQLearning(seq_size=state_size, hidden_dim=16)
 
     def init_matlab_env(self):
 
@@ -114,7 +124,6 @@ class Simulator(object):
 
                     self.controller.update_q_value(state_i_features, action_i, reward_i, q_max_next)
 
-                    #state_i = state_prime
 
                     cntr += 1
 
@@ -187,7 +196,7 @@ class Simulator(object):
 
 if __name__ == "__main__":
 
-    sim = Simulator(controller='linear', totalsteps=50000, target=300, state_size=4, persist=True)
+    sim = Simulator(controller='neural_net', totalsteps=50000, target=300, state_size=8, persist=True)
     #sim.controller.load_model('models/q-table.p')
     # train
     output = sim.main(n_episodes=100)
