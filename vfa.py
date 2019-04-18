@@ -6,9 +6,9 @@ import torch.optim as optim
 
 
 class LinearVFA(nn.Module):
-    def __init__(self, n_features):
+    def __init__(self, n_features, n_actions):
         super(LinearVFA, self).__init__()
-        self.betas = nn.Linear(n_features, 1)
+        self.betas = nn.Linear(n_features, n_actions)
         self.mse_loss = torch.nn.MSELoss(reduction='mean')
 
     def forward(self, X):
@@ -21,16 +21,12 @@ class LinearVFA(nn.Module):
 
         return optimizer
 
-    def loss(self, y_hat, y_true):
+    def get_loss(self, q_val_curr, q_val_expected):
         # MSE with l2 norm penalty on weights (Lasso)
-        err = y_hat - y_true
+        err = q_val_curr - q_val_expected
         mse = torch.mean(torch.pow(err, 2))
 
-
-        loss = mse
-        #loss = mse + lmbda*reg
-
-        return loss
+        return mse
 
 
 
@@ -65,3 +61,11 @@ class LinearVFA(nn.Module):
             self.loss_seq.append(loss.item())
             self.loss_seq_val.append(loss_val.item())
 
+
+if __name__ == '__main__':
+    n_features = 8
+    n_actions = 4
+
+    x = torch.randn(n_features)
+    nn = LinearVFA(n_features, n_actions)
+    nn.forward(x)

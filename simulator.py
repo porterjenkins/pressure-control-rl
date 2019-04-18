@@ -1,7 +1,7 @@
 import numpy as np
 import matlab.engine
 from utils import *
-from q_learning import TabularQLearning
+from q_learning import TabularQLearning, LinearQLearning
 import matplotlib.pyplot as plt
 import pickle
 
@@ -10,14 +10,21 @@ class Simulator(object):
     Simulator base class
     """
 
-    def __init__(self, totalsteps, target, n_states, persist):
+    def __init__(self, controller, totalsteps, target, state_size, persist):
 
         self.totalsteps = totalsteps
         self.target = target # reward target
         self.persist = persist
+        self.controller_type = controller
 
         # init controller
-        self.controller = TabularQLearning(n_states=n_states, min_state_val=0, max_state_val=5.0e3, gamma=.1)
+        assert controller in ['tabular', 'linear', 'neural_net']
+        if controller == 'tabular':
+            self.controller = TabularQLearning(n_states=state_size, min_state_val=0, max_state_val=5.0e3, gamma=.1)
+        elif controller == 'linear':
+            self.controller = LinearQLearning(n_features=state_size)
+        else:
+            raise NotImplementedError("TODO: neural_net")
 
     def init_matlab_env(self):
 
@@ -84,11 +91,12 @@ class Simulator(object):
                         prms.append(prms_i)
 
                         p[start_idx:end_idx] = p_i
-                        state_i = prms_i
+                        #state_i = prms_i
                         cntr += 1
                         continue
 
-                    action_i = self.controller.get_epsilon_greedy_action(state_i, eps=.1)
+                    state_i_features = self.controller.feature_extractor(prms)
+                    action_i = self.controller.get_epsilon_greedy_action(state_i_features, eps=.1)
                     self.update_frac_sec(action_i)
 
                     p_i = self.eng.Time_Solver(self.rept, i, self.mass_in, self.phi_primary, self.frac_sec)
@@ -98,20 +106,21 @@ class Simulator(object):
                     p[start_idx:end_idx] = p_i
 
                     reward_i = reward(prms_i, target=self.target)
-                    state_prime = prms_i
+
+                    state_prime_features = self.controller.feature_extractor(prms)
                     print("Iteration: {}, PRMS: {:.4f}, reward: {:.4f}".format(cntr + 1, prms_i, reward_i))
 
-                    q_max = self.controller.get_q_max(state_prime)
+                    q_max_next = self.controller.get_q_max(state_prime_features)
 
-                    self.controller.update_q_value(state_i, action_i, reward_i, q_max)
+                    self.controller.update_q_value(state_i_features, action_i, reward_i, q_max_next)
 
-                    state_i = state_prime
+                    #state_i = state_prime
 
                     cntr += 1
 
                 self.shutdown_matlab_env()
                 #self.plot(p, fname='pressure-{}.pdf'.format(episode_cnt+1))
-                self.plot_prms(prms, fname='prms-{}.pdf'.format(episode_cnt+1))
+                self.plot_prms(prms, fname='prms-{}-{}.pdf'.format(episode_cnt+1, self.controller_type))
 
                 output['settling time'].append(self.get_settle_time(prms, self.target))
                 output['mae'].append(self.get_mae(prms, self.target))
@@ -178,8 +187,8 @@ class Simulator(object):
 
 if __name__ == "__main__":
 
-    sim = Simulator(totalsteps=50000, target=300, n_states=100, persist=True)
-    sim.controller.load_model('models/q-table.p')
+    sim = Simulator(controller='linear', totalsteps=50000, target=300, state_size=4, persist=True)
+    #sim.controller.load_model('models/q-table.p')
     # train
     output = sim.main(n_episodes=100)
 

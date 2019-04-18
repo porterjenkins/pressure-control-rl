@@ -2,6 +2,8 @@ import numpy as np
 import math
 import pickle
 from vfa import LinearVFA
+import torch
+from torch.autograd import Variable
 
 class QLearner(object):
     def __init__(self, gamma, alpha):
@@ -9,9 +11,20 @@ class QLearner(object):
         self.alpha = alpha # learning rate
 
         self.actions = [.25, .2, .15, .1, .05, 0, -.25, -.2, -.15, -.1, -.05]
+        self.idx_action_map = dict(zip(range(len(self.actions)), self.actions))
+        self.action_idx_map = dict(zip(self.actions, range(len(self.actions))))
+
+
+    def feature_extractor(self, observation):
+        pass
+
+    def get_q_hat(self, s):
+        pass
 
     def get_greedy_action(self, s):
-        pass
+        q_hat = self.get_q_hat(s)
+        action_idx = np.argmax(q_hat)
+        return self.idx_action_map[action_idx]
 
 
     def get_random_action(self):
@@ -39,8 +52,11 @@ class QLearner(object):
             self.q_func = pickle.load(f)
 
     def get_q_max(self, s):
-        pass
+        q_hat = self.get_q_hat(s)
+        return np.max(q_hat)
 
+    def update_q_value(self, s, a, r, q_max):
+        pass
 
 
 
@@ -54,37 +70,25 @@ class TabularQLearning(QLearner):
         self.state_buckets = np.linspace(min_state_val, max_state_val, n_states, endpoint=False)
         self.bin_width = self.state_buckets[1] - self.state_buckets[0]
 
-        self.idx_action_map = dict(zip(range(len(self.actions)), self.actions))
-        self.action_idx_map = dict(zip(self.actions, range(len(self.actions))))
 
         self.q_func = np.random.uniform(-10, 0, (n_states, len(self.actions)))
 
         self.gamma = gamma
         self.alpha = alpha
 
-
-    def get_state_idx(self, s):
-
+    def feature_extractor(self, observation):
+        s = observation[-1]
         state_idx = (s - self.min_state_val) // self.bin_width
         return int(state_idx)
 
-    def get_greedy_action(self, s):
 
-        state_idx = self.get_state_idx(s)
-        action_idx = np.argmax(self.q_func[state_idx, :])
+    def get_q_hat(self, s):
+        return self.q_func[s, :]
 
-        return self.idx_action_map[action_idx]
-
-
-
-    def get_q_max(self, s):
-
-        state_idx = self.get_state_idx(s)
-        return np.max(self.q_func[state_idx, :])
 
 
     def update_q_value(self, s, a, r, q_max):
-        state_idx = self.get_state_idx(s)
+        state_idx = s
         action_idx = self.action_idx_map[a]
 
         curr_q = self.q_func[state_idx, action_idx]
@@ -99,5 +103,44 @@ class TabularQLearning(QLearner):
 class LinearQLearning(QLearner):
     def __init__(self,  n_features, gamma=.5, alpha=.1):
         super().__init__(gamma, alpha)
+        self.n_features = n_features
+        self.q_func = LinearVFA(n_features, n_actions=len(self.actions))
+        self.optim = self.q_func.get_optimizer(lr=.9)
 
-        self.q_func = LinearVFA(n_features)
+
+    def feature_extractor(self, observations):
+        """Take the last k observations of the prms series"""
+        n = len(observations)
+
+        if n >= self.n_features:
+            x = np.array(observations[-self.n_features:])
+        else:
+            x = np.zeros(self.n_features)
+            x[(self.n_features-n):self.n_features] = observations
+
+        return x
+
+
+    def get_q_hat(self, s):
+        s = torch.from_numpy(s).type(torch.FloatTensor)
+        q_hat = self.q_func.forward(s)
+        return q_hat.data.numpy()
+
+
+    def update_q_value(self, s, a, r, q_max):
+        self.optim.zero_grad()
+
+        action_idx = self.action_idx_map[a]
+        q_val_curr = self.get_q_hat(s)[action_idx]
+        expected_q_val = q_max*self.gamma + r
+
+        # cast as torch objects
+        q_val_curr = torch.Tensor([q_val_curr])
+        expected_q_val = torch.Tensor([expected_q_val])
+
+        loss = self.q_func.get_loss(q_val_curr=q_val_curr, q_val_expected=expected_q_val)
+        loss = Variable(loss, requires_grad=True)
+
+
+        loss.backward()
+        self.optim.step()
