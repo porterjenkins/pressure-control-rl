@@ -1,7 +1,7 @@
 import numpy as np
 import math
 import pickle
-from vfa import LinearVFA, LstmVFA
+from vfa import LinearVFA, LstmVFA, MlpVFA
 import torch
 
 class QLearner(object):
@@ -146,6 +146,11 @@ class LinearQLearning(QLearner):
         action_idx = q_hat.max(0)[1].item()
         return self.idx_action_map[action_idx]
 
+class MlpQlearning(LinearQLearning):
+    def __init__(self, n_features, gamma=.5, alpha=.1):
+        super().__init__(n_features, gamma, alpha)
+        self.q_func = MlpVFA(n_features,  n_actions=len(self.actions))
+        self.optim = self.q_func.get_optimizer(lr=.1)
 
 
 class LstmQLearning(LinearQLearning):

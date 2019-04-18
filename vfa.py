@@ -29,6 +29,23 @@ class LinearVFA(nn.Module):
         return mse
 
 
+class MlpVFA(LinearVFA):
+    def __init__(self, n_features, n_actions):
+        super().__init__(n_features, n_actions)
+        self.linear_1 = nn.Linear(n_features, 64)
+        self.linear_2 = nn.Linear(64, 32)
+        self.linear_3 = nn.Linear(32, n_actions)
+
+        self.mse_loss = torch.nn.MSELoss(reduction='mean')
+
+    def forward(self, X):
+        h_1 = self.linear_1(X)
+        h_2 = self.linear_2(h_1)
+        y_hat = self.linear_3(h_2)
+
+        return y_hat
+
+
 class LstmVFA(nn.Module):
     def __init__(self, seq_size, hidden_dim, n_actions):
         super(LstmVFA, self).__init__()

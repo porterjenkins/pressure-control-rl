@@ -1,9 +1,10 @@
 import numpy as np
 import matlab.engine
 from utils import *
-from q_learning import TabularQLearning, LinearQLearning, LstmQLearning
+from q_learning import TabularQLearning, LinearQLearning, LstmQLearning, MlpQlearning
 import matplotlib.pyplot as plt
-import pickle
+from memory_replay import ReplayMemory
+
 
 class Simulator(object):
     """
@@ -28,12 +29,14 @@ class Simulator(object):
         self.controller_type = controller
 
         # init controller
-        assert controller in ['tabular', 'linear', 'neural_net']
+        assert controller in ['tabular', 'linear', 'mlp', 'lstm']
         if controller == 'tabular':
             self.controller = TabularQLearning(n_states=state_size, min_state_val=0, max_state_val=5.0e3, gamma=.1)
         elif controller == 'linear':
             self.controller = LinearQLearning(n_features=state_size)
-        elif controller == 'neural_net':
+        elif controller == 'mlp':
+            self.controller = MlpQlearning(n_features=state_size)
+        elif controller == 'lstm':
             self.controller = LstmQLearning(seq_size=state_size, hidden_dim=16)
 
     def init_matlab_env(self):
@@ -80,6 +83,8 @@ class Simulator(object):
         output = {'settling time': [],
                   'mae': []
                   }
+        memory = ReplayMemory(10000)
+
 
         for episode_cnt in range(n_episodes):
             print("STARTING EPISODE: {}".format(episode_cnt+1))
@@ -118,7 +123,8 @@ class Simulator(object):
                     reward_i = reward(prms_i, target=self.target)
 
                     state_prime_features = self.controller.feature_extractor(prms)
-                    print("Iteration: {}, PRMS: {:.4f}, reward: {:.4f}".format(cntr + 1, prms_i, reward_i))
+                    print("Iteration: {}, PRMS: {:.4f}, action: {} reward: {:.4f}".format(cntr + 1, prms_i, action_i,
+                                                                                          reward_i))
 
                     q_max_next = self.controller.get_q_max(state_prime_features)
 
@@ -194,7 +200,7 @@ class Simulator(object):
 
 if __name__ == "__main__":
 
-    controller = input("Specify Q() function (linear, tabular, neural_net): ")
+    controller = input("Specify Q() function [linear, tabular, mlp, lstm]: ")
     state_size = int(input("Specify state size:"))
 
     sim = Simulator(controller=controller, totalsteps=50000, target=300, state_size=8, persist=True)
