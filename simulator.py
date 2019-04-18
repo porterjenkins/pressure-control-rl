@@ -192,11 +192,12 @@ class Simulator(object):
 
 
 
-
-
 if __name__ == "__main__":
 
-    sim = Simulator(controller='neural_net', totalsteps=50000, target=300, state_size=8, persist=True)
+    controller = input("Specify Q() function (linear, tabular, neural_net): ")
+    state_size = int(input("Specify state size:"))
+
+    sim = Simulator(controller=controller, totalsteps=50000, target=300, state_size=8, persist=True)
     #sim.controller.load_model('models/q-table.p')
     # train
     output = sim.main(n_episodes=100)
