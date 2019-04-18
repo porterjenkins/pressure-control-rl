@@ -187,6 +187,12 @@ class Simulator(object):
 
     def update_frac_sec(self, action):
         self.frac_sec += float(action)
+        if self.frac_sec < 0.0:
+            self.frac_sec = 0.0
+        elif self.frac_sec > 1.0:
+            self.frac_sec = 1.0
+
+        print("frac sec: {}".format(self.frac_sec))
 
 
     def plot_prms(self, arr, fname):
