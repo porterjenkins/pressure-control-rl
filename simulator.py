@@ -101,7 +101,7 @@ class Simulator(object):
                     start_idx = cntr * self.rept
                     end_idx = (cntr + 1) * self.rept
 
-                    if cntr == 0:
+                    if cntr == 0 or cntr == 1:
                         # initialize state
                         p_i = self.eng.Time_Solver(self.rept, i, self.mass_in, self.phi_primary, self.frac_sec)
                         p_i = np.array(p_i)

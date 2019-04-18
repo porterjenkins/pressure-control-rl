@@ -125,9 +125,15 @@ class LinearQLearning(QLearner):
     def update_target_net(self):
         self.target_func.load_state_dict(self.q_func.state_dict())
 
-    def feature_extractor(self, observations):
+    def feature_extractor(self, observations, norm=True):
         """Take the last k observations of the prms series"""
         n = len(observations)
+        if norm:
+            # standardize (mean: 0, std: 1)
+            mu = np.mean(observations)
+            sig = np.std(observations)
+
+            observations = (observations - mu) / sig
 
         if n >= self.n_features:
             x = np.array(observations[-self.n_features:])
