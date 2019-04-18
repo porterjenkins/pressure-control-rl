@@ -3,7 +3,10 @@ import matlab.engine
 from utils import *
 from q_learning import TabularQLearning, LinearQLearning, LstmQLearning, MlpQlearning
 import matplotlib.pyplot as plt
-from memory_replay import ReplayMemory
+import memory_replay
+
+# initialize global memory buffer
+memory_replay.init_mem_buffer()
 
 
 class Simulator(object):
@@ -11,7 +14,7 @@ class Simulator(object):
     Simulator base class
     """
 
-    def __init__(self, controller, totalsteps, target, state_size, persist):
+    def __init__(self, controller, totalsteps, target, state_size, persist, target_net_update=10):
         """
 
         :param controller:
@@ -22,11 +25,12 @@ class Simulator(object):
                     -Linear: number of previous prms values to consider as state features
         :param persist:
         """
-
+        controller = controller.lower()
         self.totalsteps = totalsteps
         self.target = target # reward target
         self.persist = persist
         self.controller_type = controller
+        self.target_net_update = target_net_update
 
         # init controller
         assert controller in ['tabular', 'linear', 'mlp', 'lstm']
@@ -83,9 +87,8 @@ class Simulator(object):
         output = {'settling time': [],
                   'mae': []
                   }
-        memory = ReplayMemory(10000)
 
-
+        iter_cntr = 0
         for episode_cnt in range(n_episodes):
             print("STARTING EPISODE: {}".format(episode_cnt+1))
             self.init_matlab_env()
@@ -126,12 +129,17 @@ class Simulator(object):
                     print("Iteration: {}, PRMS: {:.4f}, action: {} reward: {:.4f}".format(cntr + 1, prms_i, action_i,
                                                                                           reward_i))
 
-                    q_max_next = self.controller.get_q_max(state_prime_features)
+                    # save transition to memory buffer
+                    memory_replay.memory.push(state_i_features, action_i, state_i_features, reward_i)
 
+                    q_max_next = self.controller.get_q_max(state_prime_features)
                     self.controller.update_q_value(state_i_features, action_i, reward_i, q_max_next)
 
+                    if self.controller_type != 'tabular' and iter_cntr % self.target_net_update == 0:
+                        self.controller.update_target_net()
 
                     cntr += 1
+                    iter_cntr += 1
 
                 self.shutdown_matlab_env()
                 #self.plot(p, fname='pressure-{}.pdf'.format(episode_cnt+1))
@@ -203,7 +211,8 @@ if __name__ == "__main__":
     controller = input("Specify Q() function [linear, tabular, mlp, lstm]: ")
     state_size = int(input("Specify state size:"))
 
-    sim = Simulator(controller=controller, totalsteps=50000, target=300, state_size=8, persist=True)
+    sim = Simulator(controller=controller, totalsteps=50000, target=300, state_size=8, persist=True,
+                    target_net_update=10)
     #sim.controller.load_model('models/q-table.p')
     # train
     output = sim.main(n_episodes=100)

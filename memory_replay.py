@@ -25,3 +25,9 @@ class ReplayMemory(object):
 
     def __len__(self):
         return len(self.memory)
+
+
+def init_mem_buffer():
+    global memory, BATCH_SIZE
+    memory = ReplayMemory(10000)
+    BATCH_SIZE = 4

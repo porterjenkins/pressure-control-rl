@@ -3,6 +3,9 @@ import math
 import pickle
 from vfa import LinearVFA, LstmVFA, MlpVFA
 import torch
+import memory_replay
+import copy
+
 
 class QLearner(object):
     def __init__(self, gamma, alpha):
@@ -19,7 +22,8 @@ class QLearner(object):
 
     def get_q_hat(self, s):
         pass
-
+    def get_target(self, s):
+        pass
 
     def get_random_action(self):
 
@@ -46,7 +50,12 @@ class QLearner(object):
             self.q_func = pickle.load(f)
 
     def get_q_max(self, s):
-        q_hat = self.get_q_hat(s)
+        """
+        Action that maximized expected reward of target function
+        :param s:
+        :return:
+        """
+        q_hat = self.get_target(s)
         if isinstance(q_hat, np.ndarray):
             return np.max(q_hat)
         else:
@@ -81,6 +90,9 @@ class TabularQLearning(QLearner):
     def get_q_hat(self, s):
         return self.q_func[s, :]
 
+    def get_target(self, s):
+        return self.q_func[s, :]
+
 
 
     def update_q_value(self, s, a, r, q_max):
@@ -108,7 +120,10 @@ class LinearQLearning(QLearner):
         self.n_features = n_features
         self.q_func = LinearVFA(n_features, n_actions=len(self.actions))
         self.optim = self.q_func.get_optimizer(lr=.1)
+        self.target_func = copy.deepcopy(self.q_func)
 
+    def update_target_net(self):
+        self.target_func.load_state_dict(self.q_func.state_dict())
 
     def feature_extractor(self, observations):
         """Take the last k observations of the prms series"""
@@ -128,8 +143,19 @@ class LinearQLearning(QLearner):
         q_hat = self.q_func.forward(s)
         return q_hat
 
+    def get_target(self, s):
+        s = torch.from_numpy(s).type(torch.FloatTensor)
+        q_hat = self.target_func.forward(s)
+        return q_hat
+
 
     def update_q_value(self, s, a, r, q_max):
+        if len(memory_replay.memory) < memory_replay.BATCH_SIZE:
+            return
+
+        transitions = memory_replay.memory.sample(memory_replay.BATCH_SIZE)
+        batch = memory_replay.Transition(*zip(*transitions))
+
         self.optim.zero_grad()
 
         action_idx = self.action_idx_map[a]
@@ -151,6 +177,7 @@ class MlpQlearning(LinearQLearning):
         super().__init__(n_features, gamma, alpha)
         self.q_func = MlpVFA(n_features,  n_actions=len(self.actions))
         self.optim = self.q_func.get_optimizer(lr=.1)
+        self.target_func = copy.deepcopy(self.q_func)
 
 
 class LstmQLearning(LinearQLearning):
@@ -159,6 +186,7 @@ class LstmQLearning(LinearQLearning):
         self.hidden_dim = hidden_dim
         self.q_func = LstmVFA(seq_size, hidden_dim=hidden_dim, n_actions=len(self.actions))
         self.optim = self.q_func.get_optimizer(lr=.1)
+        self.target_func = copy.deepcopy(self.q_func)
 
 
     def get_q_hat(self, s):
@@ -166,6 +194,13 @@ class LstmQLearning(LinearQLearning):
         s = torch.from_numpy(s).type(torch.FloatTensor).resize(1,1,8)
         q_hat = self.q_func.forward(s)
         return q_hat
+
+    def get_target(self, s):
+
+        s = torch.from_numpy(s).type(torch.FloatTensor).resize(1,1,8)
+        q_hat = self.target_func.forward(s)
+        return q_hat
+
 
     def get_greedy_action(self, s):
         q_hat = self.get_q_hat(s)
