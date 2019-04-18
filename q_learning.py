@@ -23,7 +23,10 @@ class QLearner(object):
 
     def get_greedy_action(self, s):
         q_hat = self.get_q_hat(s)
-        action_idx = np.argmax(q_hat)
+        if isinstance(q_hat, np.ndarray):
+            action_idx = np.argmax(q_hat)
+        else:
+            action_idx = q_hat.max(0)[1].item()
         return self.idx_action_map[action_idx]
 
 
@@ -43,8 +46,8 @@ class QLearner(object):
         return action
 
 
-    def dump_model(self):
-        with open('models/q-table.p', 'wb') as f:
+    def dump_model(self, fname):
+        with open(fname, 'wb') as f:
             pickle.dump(self.q_func, f)
 
     def load_model(self, fname):
@@ -53,7 +56,10 @@ class QLearner(object):
 
     def get_q_max(self, s):
         q_hat = self.get_q_hat(s)
-        return np.max(q_hat)
+        if isinstance(q_hat, np.ndarray):
+            return np.max(q_hat)
+        else:
+            return q_hat.max()
 
     def update_q_value(self, s, a, r, q_max):
         pass
@@ -124,7 +130,7 @@ class LinearQLearning(QLearner):
     def get_q_hat(self, s):
         s = torch.from_numpy(s).type(torch.FloatTensor)
         q_hat = self.q_func.forward(s)
-        return q_hat.data.numpy()
+        return q_hat
 
 
     def update_q_value(self, s, a, r, q_max):
@@ -134,13 +140,12 @@ class LinearQLearning(QLearner):
         q_val_curr = self.get_q_hat(s)[action_idx]
         expected_q_val = q_max*self.gamma + r
 
-        # cast as torch objects
-        q_val_curr = torch.Tensor([q_val_curr])
-        expected_q_val = torch.Tensor([expected_q_val])
-
         loss = self.q_func.get_loss(q_val_curr=q_val_curr, q_val_expected=expected_q_val)
-        loss = Variable(loss, requires_grad=True)
-
 
         loss.backward()
         self.optim.step()
+
+        #for p in self.q_func.parameters():
+        #    print(p)
+        #    print("sum:")
+        #    print(p.sum())

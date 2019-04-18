@@ -131,7 +131,7 @@ class Simulator(object):
                 pass
 
         if self.persist:
-            self.controller.dump_model()
+            self.controller.dump_model(fname='models/{}.p'.format(self.controller_type))
 
         return output
 
