@@ -58,7 +58,8 @@ class Simulator(object):
 
         # Acoustic Variables
 
-        self.damp_coeff = 0.00009
+        #self.damp_coeff = 0.00009
+        self.damp_coeff = 0.0008
 
         # Control Variables
 
@@ -114,7 +115,7 @@ class Simulator(object):
                         continue
 
                     state_i_features = self.controller.feature_extractor(prms)
-                    action_i, action_idx = self.controller.get_epsilon_greedy_action(state_i_features, eps=0.0,
+                    action_i, action_idx = self.controller.get_epsilon_greedy_action(state_i_features, eps=0.1,
                                                                                      p=self.phi_primary)
                     self.take_action(action_i)
 
