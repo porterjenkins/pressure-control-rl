@@ -16,6 +16,21 @@ class QLearner(object):
         self.idx_action_map = dict(zip(range(len(self.actions)), self.actions))
         self.action_idx_map = dict(zip(self.actions, range(len(self.actions))))
 
+    def get_feasible_actions(self, curr_p):
+        """
+        Restrict actions to only feasible actions given current pressure
+        :param curr_p: Current pressure value
+        :return:
+        """
+
+        feasible_actions = {}
+        for a, idx in self.action_idx_map.items():
+            if a + curr_p <= 1.0 and a + curr_p >= 0.0:
+
+                feasible_actions[a] = idx
+
+        return feasible_actions
+
 
     def feature_extractor(self, observation):
         pass
@@ -25,19 +40,26 @@ class QLearner(object):
     def get_target(self, s):
         pass
 
-    def get_random_action(self):
-        action = np.random.choice(self.actions, 1)[0]
-        action_idx = self.action_idx_map[action]
+    def get_greedy_action(self,s, feasible_a):
+        pass
+
+    def get_random_action(self, feasible_a):
+        a_list = list(feasible_a.keys())
+        #action = np.random.choice(self.actions, 1)[0]
+        action = np.random.choice(a_list, 1)[0]
+        action_idx = feasible_a[action]
         return action, action_idx
 
 
-    def get_epsilon_greedy_action(self, s, eps=.2):
+    def get_epsilon_greedy_action(self, s, p, eps=.2):
 
         alpha = np.random.uniform(0,1)
+        feasible_a = self.get_feasible_actions(curr_p=p)
+
         if alpha < eps:
-            action, a_idx = self.get_random_action()
+            action, a_idx = self.get_random_action(feasible_a)
         else:
-            action, a_idx = self.get_greedy_action(s)
+            action, a_idx = self.get_greedy_action(s, feasible_a)
 
         return action, a_idx
 
@@ -107,7 +129,7 @@ class TabularQLearning(QLearner):
 
         print("Q-value update ({:.4f}, {:.2f}): {:.4f} --> {:.4f}".format(s, a, curr_q, new_q))
 
-    def get_greedy_action(self, s):
+    def get_greedy_action(self, s, feasible_a):
         q_hat = self.get_q_hat(s)
         action_idx = np.argmax(q_hat)
         return self.idx_action_map[action_idx], action_idx
@@ -195,9 +217,16 @@ class LinearQLearning(QLearner):
         loss.backward()
         self.optim.step()
 
-    def get_greedy_action(self, s):
+    def get_greedy_action(self, s, feasible_a):
         q_hat = self.get_q_hat(s)
-        action_idx = q_hat.max(0)[1].item()
+        a_set = np.array(list(feasible_a.values()))
+        feasible_a_idx = torch.from_numpy(a_set).type(torch.LongTensor)
+        feasible_q = q_hat.gather(0, feasible_a_idx)
+
+
+        max_feasible_idx = feasible_q.max(0)[1].item()
+        action_idx = a_set[max_feasible_idx]
+
         return self.idx_action_map[action_idx], action_idx
 
 class MlpQlearning(LinearQLearning):

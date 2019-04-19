@@ -66,7 +66,8 @@ for i = rept:rept:totalsteps
     
     % Solve over the given reporting time
     
-    [p1,t1] = Time_Solver(rept,i,Mass_in,phi_primary,frac_sec);
+    %[p1,t1] = Time_Solver(rept,i,Mass_in,phi_primary,frac_sec);
+    [p1,t1] = Time_Solver(rept,i,Mass_in,phii1(end),frac_sec);
     
     p = [p,p1]; % pressure
     t = [t,t1]; % time

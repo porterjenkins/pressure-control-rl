@@ -30,4 +30,4 @@ class ReplayMemory(object):
 def init_mem_buffer():
     global memory, BATCH_SIZE
     memory = ReplayMemory(10000)
-    BATCH_SIZE = 8
+    BATCH_SIZE = 16

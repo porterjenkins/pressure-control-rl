@@ -58,7 +58,7 @@ class Simulator(object):
 
         # Acoustic Variables
 
-        self.damp_coeff = 0.0008
+        self.damp_coeff = 0.00009
 
         # Control Variables
 
@@ -114,7 +114,8 @@ class Simulator(object):
                         continue
 
                     state_i_features = self.controller.feature_extractor(prms)
-                    action_i, action_idx = self.controller.get_epsilon_greedy_action(state_i_features, eps=.1)
+                    action_i, action_idx = self.controller.get_epsilon_greedy_action(state_i_features, eps=0.0,
+                                                                                     p=self.phi_primary)
                     self.take_action(action_i)
 
                     p_i = self.eng.Time_Solver(self.rept, i, self.mass_in, self.phi_primary, self.frac_sec)
@@ -126,8 +127,7 @@ class Simulator(object):
                     reward_i = reward(prms_i, target=self.target)
 
                     state_prime_features = self.controller.feature_extractor(prms)
-                    print("Iteration: {}, PRMS: {:.4f}, action: {} reward: {:.4f}".format(cntr + 1, prms_i, action_i,
-                                                                                          reward_i))
+                    print("Iteration: {}, PRMS: {:.4f}, reward: {:.4f}".format(cntr + 1, prms_i, reward_i))
 
 
                     if self.controller_type == 'tabular':
@@ -194,13 +194,14 @@ class Simulator(object):
 
 
     def take_action(self, action):
+        prev_phi = self.phi_primary
         self.phi_primary += float(action)
-        if self.phi_primary < 0.0:
-            self.phi_primary = 0.0
-        elif self.phi_primary > 1.0:
-            self.phi_primary = 1.0
+        #if self.phi_primary < 0.0:
+        #    self.phi_primary = 0.0
+        #elif self.phi_primary > 1.0:
+        #    self.phi_primary = 1.0
 
-        print("Primary: {}, Secondary: {}".format(self.phi_primary, self.frac_sec))
+        print("Primary: {:.4f} --> {:.4f}, action: {}".format(prev_phi, self.phi_primary, action))
 
 
     def plot_prms(self, arr, fname):
