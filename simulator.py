@@ -210,6 +210,7 @@ class Simulator(object):
 
         x = np.arange(1, len(arr)+1)*self.rept*1.0e-4
         plt.plot(x, arr)
+        plt.axhline(y=self.target, c='r')
         plt.xlabel(x_label)
         plt.ylabel(y_label)
         plt.savefig("figs/" + fname)
