@@ -59,7 +59,7 @@ class LstmVFA(nn.Module):
 
     def forward(self, X):
         h, (hn, cn) = self.lstm(X)
-        y_hat = self.output(hn)
+        y_hat = self.output(h)
 
         return y_hat
 

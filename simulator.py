@@ -114,7 +114,7 @@ class Simulator(object):
                         continue
 
                     state_i_features = self.controller.feature_extractor(prms)
-                    action_i = self.controller.get_epsilon_greedy_action(state_i_features, eps=.1)
+                    action_i, action_idx = self.controller.get_epsilon_greedy_action(state_i_features, eps=.1)
                     self.update_frac_sec(action_i)
 
                     p_i = self.eng.Time_Solver(self.rept, i, self.mass_in, self.phi_primary, self.frac_sec)
@@ -129,14 +129,22 @@ class Simulator(object):
                     print("Iteration: {}, PRMS: {:.4f}, action: {} reward: {:.4f}".format(cntr + 1, prms_i, action_i,
                                                                                           reward_i))
 
-                    # save transition to memory buffer
-                    memory_replay.memory.push(state_i_features, action_i, state_i_features, reward_i)
 
-                    q_max_next = self.controller.get_q_max(state_prime_features)
-                    self.controller.update_q_value(state_i_features, action_i, reward_i, q_max_next)
+                    if self.controller_type == 'tabular':
+                        q_max_next = self.controller.get_q_max(state_prime_features)
+                        self.controller.update_q_value(state_i_features, action_i, reward_i, q_max_next)
 
-                    if self.controller_type != 'tabular' and iter_cntr % self.target_net_update == 0:
-                        self.controller.update_target_net()
+                    else:
+                        # save transition to memory buffer
+                        memory_replay.memory.push(state_i_features.reshape(1, -1), [action_idx],
+                                                  state_prime_features.reshape(1, -1), [reward_i])
+
+                        # Update q_value weights
+                        self.controller.update_q_value(state_i_features, action_i, reward_i)
+
+                        if iter_cntr % self.target_net_update == 0:
+                            # update target weights
+                            self.controller.update_target_net()
 
                     cntr += 1
                     iter_cntr += 1
@@ -215,12 +223,12 @@ class Simulator(object):
 if __name__ == "__main__":
 
     controller = input("Specify Q() function [linear, tabular, mlp, lstm]: ")
-    state_size = int(input("Specify state size:"))
+    state_size = int(input("Specify state size: "))
 
-    sim = Simulator(controller=controller, totalsteps=50000, target=300, state_size=8, persist=True,
+    sim = Simulator(controller=controller, totalsteps=50000, target=300, state_size=state_size, persist=True,
                     target_net_update=10)
-    #sim.controller.load_model('models/q-table.p')
-    # train
+        #sim.controller.load_model('models/q-table.p')
+        # train
     output = sim.main(n_episodes=100)
 
     print(output)

@@ -26,19 +26,20 @@ class QLearner(object):
         pass
 
     def get_random_action(self):
-
-        return np.random.choice(self.actions, 1)
+        action = np.random.choice(self.actions, 1)[0]
+        action_idx = self.action_idx_map[action]
+        return action, action_idx
 
 
     def get_epsilon_greedy_action(self, s, eps=.2):
 
         alpha = np.random.uniform(0,1)
         if alpha < eps:
-            action = self.get_random_action()[0]
+            action, a_idx = self.get_random_action()
         else:
-            action = self.get_greedy_action(s)
+            action, a_idx = self.get_greedy_action(s)
 
-        return action
+        return action, a_idx
 
 
     def dump_model(self, fname):
@@ -49,7 +50,7 @@ class QLearner(object):
         with open(fname, 'rb') as f:
             self.q_func = pickle.load(f)
 
-    def get_q_max(self, s):
+    def get_q_max(self, s, dim=None):
         """
         Action that maximized expected reward of target function
         :param s:
@@ -59,7 +60,7 @@ class QLearner(object):
         if isinstance(q_hat, np.ndarray):
             return np.max(q_hat)
         else:
-            return q_hat.max()
+            return q_hat.max(dim)
 
     def update_q_value(self, s, a, r, q_max):
         pass
@@ -109,7 +110,7 @@ class TabularQLearning(QLearner):
     def get_greedy_action(self, s):
         q_hat = self.get_q_hat(s)
         action_idx = np.argmax(q_hat)
-        return self.idx_action_map[action_idx]
+        return self.idx_action_map[action_idx], action_idx
 
 
 
@@ -150,24 +151,45 @@ class LinearQLearning(QLearner):
         return q_hat
 
     def get_target(self, s):
-        s = torch.from_numpy(s).type(torch.FloatTensor)
+        if isinstance(s, np.ndarray):
+            s = torch.from_numpy(s).type(torch.FloatTensor)
         q_hat = self.target_func.forward(s)
         return q_hat
 
-
-    def update_q_value(self, s, a, r, q_max):
-        if len(memory_replay.memory) < memory_replay.BATCH_SIZE:
-            return
-
+    def get_memory_batch(self):
         transitions = memory_replay.memory.sample(memory_replay.BATCH_SIZE)
         batch = memory_replay.Transition(*zip(*transitions))
 
+        state_batch = np.concatenate(batch.state, axis=0)
+        reward_batch = np.concatenate(batch.reward)
+        action_batch = np.concatenate(batch.action)
+        next_state_batch = np.concatenate(batch.next_state, axis=0)
+
+        action_batch = torch.from_numpy(action_batch).type(torch.LongTensor)
+        action_batch.resize_(memory_replay.BATCH_SIZE, 1)
+
+        reward_batch = torch.from_numpy(reward_batch).type(torch.FloatTensor)
+
+
+        return state_batch, reward_batch, action_batch, next_state_batch
+
+    def update_q_value(self, s, a, r, q_max=None):
+        if len(memory_replay.memory) < memory_replay.BATCH_SIZE:
+            return
+
+        state_batch, reward_batch, action_batch, next_state_batch = self.get_memory_batch()
+
+        # q_value from policy network
+
+        #action_idx = self.action_idx_map[a]
+        q_val_curr = self.get_q_hat(state_batch).gather(1, action_batch)
+
+
+        # q_value from target network
+        q_max = self.get_q_max(next_state_batch, dim=1)[0]
+        expected_q_val = q_max*self.gamma + reward_batch
+
         self.optim.zero_grad()
-
-        action_idx = self.action_idx_map[a]
-        q_val_curr = self.get_q_hat(s)[action_idx]
-        expected_q_val = q_max*self.gamma + r
-
         loss = self.q_func.get_loss(q_val_curr=q_val_curr, q_val_expected=expected_q_val)
 
         loss.backward()
@@ -176,7 +198,7 @@ class LinearQLearning(QLearner):
     def get_greedy_action(self, s):
         q_hat = self.get_q_hat(s)
         action_idx = q_hat.max(0)[1].item()
-        return self.idx_action_map[action_idx]
+        return self.idx_action_map[action_idx], action_idx
 
 class MlpQlearning(LinearQLearning):
     def __init__(self, n_features, gamma=.5, alpha=.1):
@@ -196,14 +218,22 @@ class LstmQLearning(LinearQLearning):
 
 
     def get_q_hat(self, s):
-
-        s = torch.from_numpy(s).type(torch.FloatTensor).resize(1,1,8)
+        if isinstance(s, np.ndarray):
+            if s.ndim > 1:
+                b = s.shape[0]
+            else:
+                b = 1
+            s = torch.from_numpy(s).type(torch.FloatTensor).resize(b,1,self.n_features)
         q_hat = self.q_func.forward(s)
         return q_hat
 
     def get_target(self, s):
-
-        s = torch.from_numpy(s).type(torch.FloatTensor).resize(1,1,8)
+        if isinstance(s, np.ndarray):
+            if s.ndim > 1:
+                b = s.shape[0]
+            else:
+                b = 1
+            s = torch.from_numpy(s).type(torch.FloatTensor).resize(b,1,self.n_features)
         q_hat = self.target_func.forward(s)
         return q_hat
 
@@ -212,15 +242,27 @@ class LstmQLearning(LinearQLearning):
         q_hat = self.get_q_hat(s)
         values, indices = torch.max(q_hat[0, 0, :], 0)
         action_idx = indices.item()
-        return self.idx_action_map[action_idx]
+        return self.idx_action_map[action_idx], action_idx
 
-    def update_q_value(self, s, a, r, q_max):
+
+    def update_q_value(self, s, a, r, q_max=None):
+        if len(memory_replay.memory) < memory_replay.BATCH_SIZE:
+            return
+
+        state_batch, reward_batch, action_batch, next_state_batch = self.get_memory_batch()
+        action_batch.resize_(4, 1, 1)
+
+        # q_value from policy network
+
+        #action_idx = self.action_idx_map[a]
+        q_val_curr = self.get_q_hat(state_batch).gather(2, action_batch)
+
+
+        # q_value from target network
+        q_max = self.get_q_max(next_state_batch, dim=2)[0]
+        expected_q_val = q_max*self.gamma + reward_batch
+
         self.optim.zero_grad()
-
-        action_idx = self.action_idx_map[a]
-        q_val_curr = self.get_q_hat(s)[0, 0, action_idx]
-        expected_q_val = q_max*self.gamma + r
-
         loss = self.q_func.get_loss(q_val_curr=q_val_curr, q_val_expected=expected_q_val)
 
         loss.backward()
