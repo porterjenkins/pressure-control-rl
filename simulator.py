@@ -78,7 +78,7 @@ class Simulator(object):
 
     def shutdown_matlab_env(self):
         self.eng.quit()
-        self.frac_sec = 0.5
+        self.frac_sec = 0.0
 
 
 
@@ -115,7 +115,7 @@ class Simulator(object):
 
                     state_i_features = self.controller.feature_extractor(prms)
                     action_i, action_idx = self.controller.get_epsilon_greedy_action(state_i_features, eps=.1)
-                    self.update_frac_sec(action_i)
+                    self.take_action(action_i)
 
                     p_i = self.eng.Time_Solver(self.rept, i, self.mass_in, self.phi_primary, self.frac_sec)
                     p_i = np.array(p_i)
@@ -193,14 +193,14 @@ class Simulator(object):
         return err
 
 
-    def update_frac_sec(self, action):
-        self.frac_sec += float(action)
-        if self.frac_sec < 0.0:
-            self.frac_sec = 0.0
-        elif self.frac_sec > 1.0:
-            self.frac_sec = 1.0
+    def take_action(self, action):
+        self.phi_primary += float(action)
+        if self.phi_primary < 0.0:
+            self.phi_primary = 0.0
+        elif self.phi_primary > 1.0:
+            self.phi_primary = 1.0
 
-        print("frac sec: {}".format(self.frac_sec))
+        print("Primary: {}, Secondary: {}".format(self.phi_primary, self.frac_sec))
 
 
     def plot_prms(self, arr, fname):
@@ -225,7 +225,7 @@ if __name__ == "__main__":
     controller = input("Specify Q() function [linear, tabular, mlp, lstm]: ")
     state_size = int(input("Specify state size: "))
 
-    sim = Simulator(controller=controller, totalsteps=50000, target=300, state_size=state_size, persist=True,
+    sim = Simulator(controller=controller, totalsteps=100000, target=300, state_size=state_size, persist=True,
                     target_net_update=10)
         #sim.controller.load_model('models/q-table.p')
         # train
