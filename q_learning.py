@@ -267,10 +267,19 @@ class LstmQLearning(LinearQLearning):
         return q_hat
 
 
-    def get_greedy_action(self, s):
+    def get_greedy_action(self, s, feasible_a):
+
         q_hat = self.get_q_hat(s)
-        values, indices = torch.max(q_hat[0, 0, :], 0)
-        action_idx = indices.item()
+        a_set = np.array(list(feasible_a.values()))
+        feasible_a_idx = torch.from_numpy(a_set).type(torch.LongTensor)
+        feasible_a_idx.resize_(1, 1, len(a_set))
+
+        feasible_q = q_hat.gather(2, feasible_a_idx)
+        vals, idx = feasible_q.max(2)
+        max_feasible_idx = idx.item()
+
+        action_idx = a_set[max_feasible_idx]
+
         return self.idx_action_map[action_idx], action_idx
 
 
@@ -279,7 +288,8 @@ class LstmQLearning(LinearQLearning):
             return
 
         state_batch, reward_batch, action_batch, next_state_batch = self.get_memory_batch()
-        action_batch.resize_(4, 1, 1)
+        action_batch.resize_(memory_replay.BATCH_SIZE, 1, 1)
+        reward_batch.resize_(memory_replay.BATCH_SIZE, 1)
 
         # q_value from policy network
 

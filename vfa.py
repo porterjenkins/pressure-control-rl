@@ -39,8 +39,8 @@ class MlpVFA(LinearVFA):
         self.mse_loss = torch.nn.MSELoss(reduction='mean')
 
     def forward(self, X):
-        h_1 = self.linear_1(X)
-        h_2 = self.linear_2(h_1)
+        h_1 = F.relu(self.linear_1(X))
+        h_2 = F.relu(self.linear_2(h_1))
         y_hat = self.linear_3(h_2)
 
         return y_hat

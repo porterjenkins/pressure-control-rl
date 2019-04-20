@@ -58,8 +58,8 @@ class Simulator(object):
 
         # Acoustic Variables
 
-        #self.damp_coeff = 0.00009
-        self.damp_coeff = 0.0008
+        self.damp_coeff = 0.00009
+        #self.damp_coeff = 0.0008
 
         # Control Variables
 
