@@ -58,8 +58,9 @@ class Simulator(object):
 
         # Acoustic Variables
 
-        self.damp_coeff = 0.00009
-        #self.damp_coeff = 0.0008
+
+        #self.damp_coeff = 0.00009
+        self.damp_coeff = 0.00038
 
         # Control Variables
 
@@ -79,13 +80,14 @@ class Simulator(object):
 
     def shutdown_matlab_env(self):
         self.eng.quit()
-        self.frac_sec = 0.0
+        self.phi_primary = 1.0
 
 
 
     def main(self, n_episodes):
 
-        output = {'settling time': [],
+        output = {'episodes': {},
+                  'settling time': [],
                   'mae': []
                   }
 
@@ -112,6 +114,8 @@ class Simulator(object):
                         p[start_idx:end_idx] = p_i
                         #state_i = prms_i
                         cntr += 1
+                        output['episodes'][episode_cnt] = {'phi primary': [],
+                                                          'reward': []}
                         continue
 
                     state_i_features = self.controller.feature_extractor(prms)
@@ -149,6 +153,9 @@ class Simulator(object):
 
                     cntr += 1
                     iter_cntr += 1
+                    output['episodes'][episode_cnt]['reward'].append(reward_i)
+                    output['episodes'][episode_cnt]['phi primary'].append(self.phi_primary)
+
 
                 self.shutdown_matlab_env()
                 #self.plot(p, fname='pressure-{}.pdf'.format(episode_cnt+1))
@@ -156,6 +163,7 @@ class Simulator(object):
 
                 output['settling time'].append(self.get_settle_time(prms, self.target))
                 output['mae'].append(self.get_mae(prms, self.target))
+
 
 
             except matlab.engine.MatlabExecutionError as err:
@@ -227,11 +235,12 @@ if __name__ == "__main__":
 
     controller = input("Specify Q() function [linear, tabular, mlp, lstm]: ")
     state_size = int(input("Specify state size: "))
+    n_episodes = int(input("Number of episodes: "))
 
     sim = Simulator(controller=controller, totalsteps=100000, target=300, state_size=state_size, persist=True,
-                    target_net_update=10)
+                    target_net_update=100)
         #sim.controller.load_model('models/q-table.p')
         # train
-    output = sim.main(n_episodes=100)
+    output = sim.main(n_episodes=n_episodes)
 
     print(output)

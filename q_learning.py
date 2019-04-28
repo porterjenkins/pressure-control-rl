@@ -16,7 +16,7 @@ class QLearner(object):
         self.idx_action_map = dict(zip(range(len(self.actions)), self.actions))
         self.action_idx_map = dict(zip(self.actions, range(len(self.actions))))
 
-    def get_feasible_actions(self, curr_p):
+    def get_feasible_actions(self, curr_p, max_phi=2.0, min_phi=0.4):
         """
         Restrict actions to only feasible actions given current pressure
         :param curr_p: Current pressure value
@@ -25,7 +25,7 @@ class QLearner(object):
 
         feasible_actions = {}
         for a, idx in self.action_idx_map.items():
-            if a + curr_p <= 1.0 and a + curr_p >= 0.0:
+            if a + curr_p <= max_phi and a + curr_p >= min_phi:
 
                 feasible_actions[a] = idx
 
@@ -48,6 +48,7 @@ class QLearner(object):
         #action = np.random.choice(self.actions, 1)[0]
         action = np.random.choice(a_list, 1)[0]
         action_idx = feasible_a[action]
+
         return action, action_idx
 
 
@@ -130,8 +131,13 @@ class TabularQLearning(QLearner):
         print("Q-value update ({:.4f}, {:.2f}): {:.4f} --> {:.4f}".format(s, a, curr_q, new_q))
 
     def get_greedy_action(self, s, feasible_a):
+        a_set = np.array(list(feasible_a.values()))
+
         q_hat = self.get_q_hat(s)
-        action_idx = np.argmax(q_hat)
+        feasible_q = q_hat[a_set]
+        max_feasible_idx = np.argmax(feasible_q)
+
+        action_idx = a_set[max_feasible_idx]
         return self.idx_action_map[action_idx], action_idx
 
 
